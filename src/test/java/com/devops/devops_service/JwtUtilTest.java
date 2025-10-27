@@ -28,10 +28,9 @@ class JwtUtilTest {
         String token1 = jwtUtil.generateToken("Juan Perez", "Rita Asturia");
         String token2 = jwtUtil.generateToken("Juan Perez", "Rita Asturia");
         
-        // Aunque sean para el mismo contenido, cada transacción debe generar un JWT único
         assertNotNull(token1);
         assertNotNull(token2);
-        // Los tokens pueden ser diferentes por timestamps diferentes
+
     }
 }
 
