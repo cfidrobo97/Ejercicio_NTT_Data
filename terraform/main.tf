@@ -20,7 +20,7 @@ data "azurerm_resource_group" "main" {
 # App Service Plan (Linux B1)
 resource "azurerm_service_plan" "main" {
   name                = var.app_service_plan_name
-  location            = data.azurerm_resource_group.main.location
+  location            = var.app_location
   resource_group_name = data.azurerm_resource_group.main.name
   os_type             = "Linux"
   sku_name            = "B1"
@@ -30,7 +30,7 @@ resource "azurerm_service_plan" "main" {
 # App Service (Linux) con imagen de GHCR
 resource "azurerm_linux_web_app" "main" {
   name                = var.app_service_name
-  location            = data.azurerm_resource_group.main.location
+  location            = var.app_location
   resource_group_name = data.azurerm_resource_group.main.name
   service_plan_id     = azurerm_service_plan.main.id
 
