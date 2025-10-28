@@ -1,6 +1,3 @@
-# Autenticación se configura mediante las variables en runtime
-# o mediante variables de entorno AZURE_*
-
 # Crear Resource Group
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
@@ -25,7 +22,7 @@ resource "azurerm_service_plan" "main" {
   }
 }
 
-# Crear App Service (esto es tu aplicación desplegada)
+# Crear App Service 
 resource "azurerm_linux_web_app" "main" {
   name                = var.app_service_name
   location            = azurerm_resource_group.main.location
@@ -34,29 +31,25 @@ resource "azurerm_linux_web_app" "main" {
 
   # Configuración de Docker
   site_config {
-    application_stack {
-      docker_image     = var.docker_image
-      docker_image_tag = "latest"
-    }
+    # Configurar Docker desde GHCR
+    linux_fx_version = "DOCKER|${var.docker_image}"
     
-    # Habilitar logs
+    # Habilitar always on para producción
     always_on = true
     
     # Número de instancias
     worker_count = var.instance_count
   }
 
-  # Variables de entorno
+  # Variables de entorno y configuración de Docker Registry
   app_settings = {
     "PORT" = "8080"
+    "DOCKER_REGISTRY_SERVER_URL"      = "https://ghcr.io"
+    "DOCKER_REGISTRY_SERVER_USERNAME" = "cfidrobo97"
+    "DOCKER_REGISTRY_SERVER_PASSWORD" = var.ghcr_token
   }
 
   tags = {
     environment = "production"
   }
 }
-
-# Nota: La autenticación de Azure se configurará mediante:
-# 1. Variables de entorno en el pipeline de GitHub Actions
-# 2. Variables pasadas a terraform en runtime
-
