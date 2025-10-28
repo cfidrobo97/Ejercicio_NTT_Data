@@ -94,28 +94,23 @@ jobs:
   publish:
     needs: static-analysis
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Configurar Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login a GitHub Container Registry
+     steps:
+      - uses: actions/checkout@v4
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Determinar tag de imagen
+          password: ${{ secrets.GHCR_PAT }}
+      - name: Determine image tag
         id: tag
         run: echo "sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
-
-      - name: Construir y subir imagen Docker
+      - name: Build & push to GHCR
         run: |
           REPO_LOWER=$(echo "${IMAGE_REPO}" | tr '[:upper:]' '[:lower:]')
-          IMAGE=${{ env.REGISTRY }}/${IMAGE_OWNER}/${REPO_LOWER}
+          IMAGE=ghcr.io/${IMAGE_OWNER}/$REPO_LOWER
           docker build -t $IMAGE:${{ steps.tag.outputs.sha }} -t $IMAGE:latest .
           docker push $IMAGE:${{ steps.tag.outputs.sha }}
           docker push $IMAGE:latest
