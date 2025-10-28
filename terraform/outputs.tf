@@ -1,6 +1,6 @@
 output "app_service_url" {
-  description = "URL de la App"
   value       = "https://${azurerm_linux_web_app.main.default_hostname}"
+  description = "URL de la App"
 }
 
 output "app_service_name" {
