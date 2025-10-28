@@ -94,7 +94,7 @@ jobs:
   publish:
     needs: static-analysis
     runs-on: ubuntu-latest
-     steps:
+    steps:
       - uses: actions/checkout@v4
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v2
