@@ -231,13 +231,36 @@ jobs:
           
           echo "ref=$IMAGE_REF" >> $GITHUB_OUTPUT
 
+      - name: Setup Terraform Auth
+        run: |
+          # Extraer credenciales del Service Principal para Terraform backend
+          ARM_CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)
+          ARM_CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)
+          ARM_SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .subscriptionId)
+          ARM_TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .tenantId)
+          
+          echo "ARM_CLIENT_ID=$ARM_CLIENT_ID" >> $GITHUB_ENV
+          echo "ARM_CLIENT_SECRET=$ARM_CLIENT_SECRET" >> $GITHUB_ENV
+          echo "ARM_SUBSCRIPTION_ID=$ARM_SUBSCRIPTION_ID" >> $GITHUB_ENV
+          echo "ARM_TENANT_ID=$ARM_TENANT_ID" >> $GITHUB_ENV
+
       - name: Terraform Init
+        env:
+          ARM_CLIENT_ID: ${{ env.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ env.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ env.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ env.ARM_TENANT_ID }}
         run: terraform -chdir=terraform init -input=false
 
       - name: Terraform Validate
         run: terraform -chdir=terraform validate -no-color
 
       - name: Terraform Apply
+        env:
+          ARM_CLIENT_ID: ${{ env.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ env.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ env.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ env.ARM_TENANT_ID }}
         run: |
           terraform -chdir=terraform apply -auto-approve -input=false \
             -var="location=eastus" \
@@ -247,5 +270,10 @@ jobs:
             -var="container_port=8080"
 
       - name: Show URL
+        env:
+          ARM_CLIENT_ID: ${{ env.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ env.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ env.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ env.ARM_TENANT_ID }}
         run: terraform -chdir=terraform output app_url
 
