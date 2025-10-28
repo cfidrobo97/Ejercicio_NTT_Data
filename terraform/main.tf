@@ -22,31 +22,27 @@ resource "azurerm_service_plan" "main" {
   }
 }
 
-# Crear App Service 
+# Crear App Service (esto es tu aplicación desplegada)
 resource "azurerm_linux_web_app" "main" {
   name                = var.app_service_name
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   service_plan_id     = azurerm_service_plan.main.id
 
-  # Configuración de Docker
+  # Configuración del sitio
   site_config {
-    # Configurar Docker desde GHCR
-    linux_fx_version = "DOCKER|${var.docker_image}"
-    
-    # Habilitar always on para producción
     always_on = true
-    
-    # Número de instancias
     worker_count = var.instance_count
   }
 
-  # Variables de entorno y configuración de Docker Registry
+  # Variables de entorno - Azure detectará Docker automáticamente
   app_settings = {
-    "PORT" = "8080"
-    "DOCKER_REGISTRY_SERVER_URL"      = "https://ghcr.io"
-    "DOCKER_REGISTRY_SERVER_USERNAME" = "cfidrobo97"
-    "DOCKER_REGISTRY_SERVER_PASSWORD" = var.ghcr_token
+    "PORT"                                = "8080"
+    "DOCKER_REGISTRY_SERVER_URL"         = "https://ghcr.io"
+    "DOCKER_REGISTRY_SERVER_USERNAME"    = "cfidrobo97"
+    "DOCKER_REGISTRY_SERVER_PASSWORD"    = var.ghcr_token
+    "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
+    "DOCKER_CUSTOM_IMAGE_NAME"           = "${var.docker_image}:latest"
   }
 
   tags = {
