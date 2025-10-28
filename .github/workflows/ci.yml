@@ -188,6 +188,28 @@ jobs:
         run: |
           az group create -n devops-service-rg -l eastus \
             --tags environment=production managed-by=terraform
+      
+      - name: Setup Terraform Backend Storage
+        run: |
+          # Crear Storage Account para el estado de Terraform
+          az storage account create \
+            --name tfstatedevops97 \
+            --resource-group devops-service-rg \
+            --location eastus \
+            --sku Standard_LRS \
+            --encryption-services blob || echo "Storage account already exists"
+          
+          # Obtener la clave de acceso
+          ACCOUNT_KEY=$(az storage account keys list \
+            --resource-group devops-service-rg \
+            --account-name tfstatedevops97 \
+            --query '[0].value' -o tsv)
+          
+          # Crear contenedor para el estado
+          az storage container create \
+            --name tfstate \
+            --account-name tfstatedevops97 \
+            --account-key $ACCOUNT_KEY || echo "Container already exists"
 
       - name: Get image ref
         id: img
