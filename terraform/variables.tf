@@ -7,7 +7,7 @@ variable "resource_group_name" {
 variable "location" {
   type        = string
   default     = "eastus"
-  description = "Región del RG (solo informativo)"
+  description = "Región del RG"
 }
 
 variable "docker_image" {
@@ -17,7 +17,7 @@ variable "docker_image" {
 
 variable "ghcr_username" {
   type        = string
-  description = "Usuario de GitHub para GHCR (ej: cfidrobo97)"
+  description = "Usuario de GitHub para GHCR"
 }
 
 variable "ghcr_token" {
