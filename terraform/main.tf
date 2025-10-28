@@ -10,6 +10,14 @@ terraform {
       version = "~> 3.0"
     }
   }
+  
+  # Backend remoto para persistir el estado en Azure Storage
+  backend "azurerm" {
+    resource_group_name  = "devops-service-rg"
+    storage_account_name = "tfstatedevops97"  # debe ser único globalmente
+    container_name       = "tfstate"
+    key                  = "prod.terraform.tfstate"
+  }
 }
 
 provider "azurerm" {
