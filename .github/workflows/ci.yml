@@ -1,229 +1,126 @@
-name: CI & CD Pipeline
+name: CI/CD Pipeline - Azure
 
-###############################################################################
-#  DISPARADORES
-###############################################################################
 on:
   push:
     branches:
-      - dev               # rama de desarrollo
-    tags:
-      - '*'               # cualquier tag → producción
+      - main  
+      - dev    
+  pull_request:
+    branches:
+      - main
 
-###############################################################################
-#  VARIABLES (ENV) COMUNES
-###############################################################################
 env:
-  VALIDATION_BRANCH: main
-  PIPELINE_STATUS_FILE: logs/pipeline_status.log
-  REGISTRY: ghcr.io            # Usa GHCR; cámbialo si prefieres Docker Hub
+  REGISTRY: ghcr.io 
   IMAGE_OWNER: ${{ github.repository_owner }}
-  IMAGE_REPO:  ${{ github.event.repository.name }}
+  IMAGE_REPO: ${{ github.event.repository.name }}
+
 jobs:
-
-  ###############################################################################
-  #  1) VALIDATE
-  ###############################################################################
-
-  validate:
+  # ============================================================
+  # 1. BUILD: Compilar el proyecto Maven
+  # ============================================================
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout código
         uses: actions/checkout@v4
 
-      - name: Validate tag ancestry (only if ref is tag)
-        id: tagcheck
-        shell: bash
-        run: |
-          echo "🔍 Validating tag ancestry..."
-          # ¿Es un tag?
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            # Traemos branch de validación
-            git fetch origin $VALIDATION_BRANCH:$VALIDATION_BRANCH
-            if git branch --contains ${{ github.sha }} | grep -q "$VALIDATION_BRANCH"; then
-              echo "✅ Tag válido: commit presente en $VALIDATION_BRANCH"
-            else
-              echo "❌ Tag inválido: commit NO presente en $VALIDATION_BRANCH"
-              exit 1
-            fi
-          else
-            echo "✅ No es tag. Se asume rama dev."
-          fi
-
-###############################################################################
-# 2) RESOLVE DEPENDENCIES
-###############################################################################
-  resolve-deps:
-    name: Resolve Dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
+      - name: Configurar JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'maven'
 
-      - name: Resolve Maven dependencies
+      - name: Instalar dependencias
         run: mvn dependency:resolve
 
-  ###############################################################################
-  # 3) TEST
-  ###############################################################################
+      - name: Compilar proyecto
+        run: mvn clean compile
+
+  # ============================================================
+  # 2. TEST: Ejecutar tests unitarios e integración
+  # ============================================================
   test:
-    name: Run Tests & Collect Coverage
-    needs: [validate, resolve-deps]
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout código
+        uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Configurar JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'maven'
 
-      - name: Run unit tests
+      - name: Ejecutar tests
         run: mvn test
 
-      - name: Generate JaCoCo report
+      - name: Generar reporte de cobertura (JaCoCo)
         run: mvn jacoco:report
 
-      - name: Upload test results
+      - name: Subir reportes de tests
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
-          path: target/surefire-reports/
+          path: |
+            target/surefire-reports/
+            target/site/jacoco/
 
-  ###############################################################################
-  # 4) STATIC ANALYSIS
-  ###############################################################################
+  # ============================================================
+  # 3. STATIC ANALYSIS: Análisis estático de código
+  # ============================================================
   static-analysis:
-    name: Static Code Analysis
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout código
+        uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Configurar JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      #- name: Run Checkstyle
-      #  run: mvn checkstyle:check
-
-      - name: Run SpotBugs
+      - name: Ejecutar SpotBugs (análisis estático)
         run: mvn spotbugs:check
 
-      - name: Upload analysis reports
+      - name: Subir reportes de análisis
         uses: actions/upload-artifact@v4
         with:
           name: analysis-reports
-          path: target/*-reports/
+          path: target/spotbugsXml.xml
 
-  ###############################################################################
-  #  5) BUILD y PUSH
-  ###############################################################################
-  build_and_push:
+  # ============================================================
+  # 4. BUILD DOCKER IMAGE & PUSH
+  # ============================================================
+  publish:
     needs: static-analysis
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout código
+        uses: actions/checkout@v4
 
-      - name: Determine tag & namespace
-        id: meta
-        run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            echo "namespace=produccion" >> $GITHUB_OUTPUT
-            echo "image_tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          else
-            shortsha=$(echo "${{ github.sha }}" | cut -c1-8)
-            echo "namespace=desarrollo"  >> $GITHUB_OUTPUT
-            echo "image_tag=dev-${shortsha}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Set up Docker Buildx
+      - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR
+      - name: Login a GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push Docker image
-        run: |
-          IMAGE_MAIN=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.image_tag }}
-          IMAGE_LATEST=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_REPO }}:latest
-          
-          docker build --build-arg PROFILE=${{ steps.meta.outputs.namespace }} \
-            -t "$IMAGE_MAIN" -t "$IMAGE_LATEST" .
-          
-          docker push "$IMAGE_MAIN"
-          docker push "$IMAGE_LATEST"
-      - name: Save pipeline status
-        run: |
-          mkdir -p logs
-          echo "push: success" >> $PIPELINE_STATUS_FILE
-      - name: Upload pipeline log
-        uses: actions/upload-artifact@v4
-        with:
-          name: pipeline-logs
-          path: logs/pipeline_status.log
+      - name: Determinar tag de imagen
+        id: tag
+        run: echo "sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
 
-  ###############################################################################
-  #  6) NOTIFY  (siempre)
-  ###############################################################################
-  notify:
-    runs-on: ubuntu-latest
-    needs: build_and_push
-    if: always()
-    env:
-      EMAIL_USER: ${{ secrets.EMAIL_USER }}
-      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-      SMTP_HOST: smtp.gmail.com
-      SMTP_PORT: 587
-    steps:
-      - name: Get logs
-        uses: actions/download-artifact@v4
-        with:
-          name: pipeline-logs
-          path: logs/
-
-      - name: Send e-mail report (simple stdout demo)
-        env:
-          EMAIL_USER:     ${{ secrets.EMAIL_USER }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-        shell: bash
+      - name: Construir y subir imagen Docker
         run: |
-          echo ">> NOTIFY STAGE"
-          echo "Repo:      ${{ github.repository }}"
-          echo "Ref:       ${{ github.ref_name }}"
-          echo "Commit:    ${{ github.sha }}"
-          echo "========   Pipeline results   ========"
-          cat logs/pipeline_status.log || echo "No status file"
-          
-          
-          # Descomenta si realmente quieres mandar correo
-          sudo apt-get update
-          sudo apt-get install -y msmtp ca-certificates
-          {
-            echo "account default"
-            echo "host smtp.gmail.com"
-            echo "port 587"
-            echo "auth on"
-            echo "user $EMAIL_USER"
-            echo "password $EMAIL_PASSWORD"
-            echo "from $EMAIL_USER"
-            echo "tls on"
-            echo "tls_starttls on"
-            echo "tls_trust_file /etc/ssl/certs/ca-certificates.crt"
-          } > ~/.msmtprc
-          chmod 600 ~/.msmtprc
-          SUBJECT="🚀 Pipeline finalizado"
-          BODY=$(cat logs/pipeline_status.log 2>/dev/null || echo "Sin log")
-          echo -e "To: $EMAIL_USER\nSubject: $SUBJECT\n\n$BODY" | msmtp -t
+          REPO_LOWER=$(echo "${IMAGE_REPO}" | tr '[:upper:]' '[:lower:]')
+          IMAGE=${{ env.REGISTRY }}/${IMAGE_OWNER}/${REPO_LOWER}
+          docker build -t $IMAGE:${{ steps.tag.outputs.sha }} -t $IMAGE:latest .
+          docker push $IMAGE:${{ steps.tag.outputs.sha }}
+          docker push $IMAGE:latest
