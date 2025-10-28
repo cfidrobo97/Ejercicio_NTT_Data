@@ -14,7 +14,7 @@ terraform {
   # Backend remoto para persistir el estado en Azure Storage
   backend "azurerm" {
     resource_group_name  = "devops-service-rg"
-    storage_account_name = "tfstatedevops97"  # debe ser único globalmente
+    storage_account_name = "tfstatedevops97"  
     container_name       = "tfstate"
     key                  = "prod.terraform.tfstate"
   }
@@ -44,17 +44,17 @@ resource "azurerm_container_group" "main" {
   os_type             = "Linux"
 
   ip_address_type     = "Public"
-  dns_name_label      = "devops-service-${random_string.suffix.result}" # subdominio público
+  dns_name_label      = "devops-service-${random_string.suffix.result}" 
   restart_policy      = "Always"
 
   container {
     name   = "app"
-    image  = var.docker_image                       # ghcr.io/owner/repo:tag
+    image  = var.docker_image                       
     cpu    = var.container_cpu
     memory = var.container_memory
 
     ports {
-      port     = var.container_port                 # expone tu puerto (8080 por defecto)
+      port     = var.container_port                
       protocol = "TCP"
     }
 
@@ -66,8 +66,8 @@ resource "azurerm_container_group" "main" {
   # Credenciales para imagen privada en GHCR
   image_registry_credential {
     server   = "ghcr.io"
-    username = var.ghcr_username                    # p.ej. "cfidrobo97"
-    password = var.ghcr_token                       # PAT con read:packages
+    username = var.ghcr_username                    
+    password = var.ghcr_token                       
   }
 
   tags = { environment = "production" }
