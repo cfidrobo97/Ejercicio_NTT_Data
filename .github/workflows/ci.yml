@@ -5,7 +5,7 @@ on:
 
 
 env:
-  REGISTRY: ghcr.io  # Puedes cambiar a Azure Container Registry si prefieres
+  REGISTRY: ghcr.io  
   IMAGE_OWNER: ${{ github.repository_owner }}
   IMAGE_REPO: ${{ github.event.repository.name }}
 
@@ -114,3 +114,58 @@ jobs:
           docker build -t $IMAGE:${{ steps.tag.outputs.sha }} -t $IMAGE:latest .
           docker push $IMAGE:${{ steps.tag.outputs.sha }}
           docker push $IMAGE:latest
+
+  
+  # ============================================================
+  # 5. DEPLOY CON TERRAFORM A AZURE
+  # ============================================================
+  terraform-deploy:
+    needs: publish
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'  
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.0"
+
+      - name: Autenticar en Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Configurar variables de entorno para Terraform
+        run: |
+          echo "Configurando autenticación para Terraform..."
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
+
+      - name: Terraform Validate
+        run: terraform -chdir=terraform validate
+
+      - name: Obtener nombre de imagen
+        id: get_image
+        run: |
+          REPO_LOWER=$(echo "${{ env.IMAGE_REPO }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE=ghcr.io/${{ env.IMAGE_OWNER }}/${REPO_LOWER}:latest
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform -chdir=terraform plan \
+            -var="docker_image=${{ steps.get_image.outputs.image }}" \
+            -var="location=eastus" \
+            -var="ghcr_token=${{ secrets.GHCR_PAT }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        run: terraform -chdir=terraform apply -auto-approve tfplan
+
+      - name: Mostrar URL del servicio
+        run: |
+          terraform -chdir=terraform output app_service_url
