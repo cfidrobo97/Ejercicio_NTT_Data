@@ -1,49 +1,54 @@
-
-# Crear Resource Group
-resource "azurerm_resource_group" "main" {
-  name     = var.resource_group_name
-  location = var.location
-
-  tags = {
-    environment = "production"
-    managed-by  = "terraform"
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
   }
 }
 
-# Crear App Service Plan (B1 con 2 instancias)
+provider "azurerm" {
+  features {}
+}
+
+# 🔎 Leer (no crear) el Resource Group
+data "azurerm_resource_group" "main" {
+  name = var.resource_group_name
+}
+
+# 🧱 App Service Plan (Linux B1)
 resource "azurerm_service_plan" "main" {
   name                = var.app_service_plan_name
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
   os_type             = "Linux"
-  sku_name            = "B1" 
-  
+  sku_name            = "B1"
+
   tags = {
     environment = "production"
   }
 }
 
-# Crear App Service (esto es tu aplicación desplegada)
+# 🚀 App Service (Linux) usando imagen Docker de GHCR
 resource "azurerm_linux_web_app" "main" {
   name                = var.app_service_name
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
   service_plan_id     = azurerm_service_plan.main.id
 
-  # Configuración del sitio
   site_config {
-    always_on = true
+    always_on   = true
     worker_count = 1
   }
 
-  # Variables de entorno - Azure detectará Docker automáticamente
   app_settings = {
-    "PORT"                                = "8080"
+    "PORT"                               = "8080"
     "DOCKER_REGISTRY_SERVER_URL"         = "https://ghcr.io"
-    "DOCKER_REGISTRY_SERVER_USERNAME"    = "cfidrobo97"
-    "DOCKER_REGISTRY_SERVER_PASSWORD"    = var.ghcr_token
-    "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
-    "DOCKER_CUSTOM_IMAGE_NAME"           = var.docker_image
+    "DOCKER_REGISTRY_SERVER_USERNAME"    = "cfidrobo97"              # tu usuario GH
+    "DOCKER_REGISTRY_SERVER_PASSWORD"    = var.ghcr_token            # PAT con read:packages
+    "WEBSITES_ENABLE_APP_SERVICE_STORAGE"= "false"
+    "DOCKER_CUSTOM_IMAGE_NAME"           = var.docker_image          # ghcr.io/owner/repo:tag
   }
 
   tags = {
