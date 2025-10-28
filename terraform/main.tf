@@ -52,8 +52,3 @@ resource "azurerm_container_group" "main" {
 
   tags = { environment = "production" }
 }
-
-output "app_url" {
-  description = "URL pública del contenedor"
-  value       = "http://${azurerm_container_group.main.fqdn}:${var.container_port}"
-}
