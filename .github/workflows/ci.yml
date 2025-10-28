@@ -137,46 +137,31 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
       
-      - name: Configurar variables de entorno para Terraform
+      - name: RG exist
         run: |
-          echo "Configurando autenticación para Terraform..."
+          az group create -n devops-service-rg -l eastus \
+            --tags environment=production managed-by=terraform
+
+      - name: Get image ref
+        id: img
+        run: |
+          OWNER_LOWER=$(echo "${{ env.IMAGE_OWNER }}" | tr '[:upper:]' '[:lower:]')
+          REPO_LOWER=$(echo "${{ env.IMAGE_REPO }}" | tr '[:upper:]' '[:lower:]')
+          echo "ref=ghcr.io/${OWNER_LOWER}/${REPO_LOWER}:latest" >> $GITHUB_OUTPUT
 
       - name: Terraform Init
-        run: terraform -chdir=terraform init
+        run: terraform -chdir=terraform init -input=false
 
       - name: Terraform Validate
-        run: terraform -chdir=terraform validate
-
-      - name: Obtener nombre de imagen
-        id: get_image
-        run: |
-          REPO_LOWER=$(echo "${{ env.IMAGE_REPO }}" | tr '[:upper:]' '[:lower:]')
-          IMAGE=ghcr.io/${{ env.IMAGE_OWNER }}/${REPO_LOWER}:latest
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
-
-      - name: Import RG if exists
-        shell: bash
-        run: |
-          set -e
-          RG="devops-service-rg"
-          SUB="07c4caa0-894c-41ec-b671-5d90680e2354"
-          if az group exists -n "$RG"; then
-            terraform -chdir=terraform import -lock=false azurerm_resource_group.main "/subscriptions/${SUB}/resourceGroups/${RG}" || true
-          fi
-
-      - name: Terraform Plan
-        id: plan
-        run: |
-          terraform -chdir=terraform plan \
-            -var="docker_image=${{ steps.get_image.outputs.image }}" \
-            -var="location=eastus" \
-            -var="ghcr_token=${{ secrets.GHCR_PAT }}" \
-            -out=tfplan
+        run: terraform -chdir=terraform validate -no-color
 
       - name: Terraform Apply
-        run: terraform -chdir=terraform apply -auto-approve tfplan
-
-      - name: Mostrar URL del servicio
         run: |
-          terraform -chdir=terraform output app_service_url
+          terraform -chdir=terraform apply -auto-approve -input=false \
+            -var="location=eastus" \
+            -var="docker_image=${{ steps.img.outputs.ref }}" \
+            -var="ghcr_token=${{ secrets.GHCR_PAT }}"
+
+      - name: Show URL
+        run: terraform -chdir=terraform output app_service_url
 
