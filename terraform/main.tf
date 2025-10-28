@@ -1,3 +1,4 @@
+
 # Crear Resource Group
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
@@ -9,13 +10,13 @@ resource "azurerm_resource_group" "main" {
   }
 }
 
-# Crear App Service Plan (F1 con 2 instancias)
+# Crear App Service Plan (B1 con 2 instancias)
 resource "azurerm_service_plan" "main" {
   name                = var.app_service_plan_name
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   os_type             = "Linux"
-  sku_name            = "F1"
+  sku_name            = "B1" 
   
   tags = {
     environment = "production"
@@ -32,7 +33,7 @@ resource "azurerm_linux_web_app" "main" {
   # Configuración del sitio
   site_config {
     always_on = true
-    worker_count = var.instance_count
+    worker_count = 1
   }
 
   # Variables de entorno - Azure detectará Docker automáticamente
@@ -42,7 +43,7 @@ resource "azurerm_linux_web_app" "main" {
     "DOCKER_REGISTRY_SERVER_USERNAME"    = "cfidrobo97"
     "DOCKER_REGISTRY_SERVER_PASSWORD"    = var.ghcr_token
     "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
-    "DOCKER_CUSTOM_IMAGE_NAME"           = "${var.docker_image}:latest"
+    "DOCKER_CUSTOM_IMAGE_NAME"           = var.docker_image
   }
 
   tags = {
