@@ -6,7 +6,7 @@ variable "resource_group_name" {
 }
 
 variable "location" {
-  description = "Región de Azure (por ejemplo: eastus, westeurope)"
+  description = "Región de Azure"
   type        = string
   default     = "eastus"
 }
@@ -29,12 +29,12 @@ variable "instance_count" {
   default     = 2
 }
 
+variable "ghcr_token" {
+  description = "Token de GitHub Container Registry para autenticación"
+  type        = string
+  sensitive   = true
+}
 variable "docker_image" {
   description = "URL de la imagen Docker en GHCR o ACR"
   type        = string
 }
-
-# Nota: Las credenciales de Azure se manejan mediante:
-# 1. Azure CLI login en GitHub Actions (azure/login@v1)
-# 2. El provider de Terraform detecta automáticamente las credenciales de Azure CLI
-
