@@ -154,6 +154,16 @@ jobs:
           IMAGE=ghcr.io/${{ env.IMAGE_OWNER }}/${REPO_LOWER}:latest
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
+      - name: Import RG if exists
+        shell: bash
+        run: |
+          set -e
+          RG="devops-service-rg"
+          SUB="07c4caa0-894c-41ec-b671-5d90680e2354"
+          if az group exists -n "$RG"; then
+            terraform -chdir=terraform import -lock=false azurerm_resource_group.main "/subscriptions/${SUB}/resourceGroups/${RG}" || true
+          fi
+
       - name: Terraform Plan
         id: plan
         run: |
