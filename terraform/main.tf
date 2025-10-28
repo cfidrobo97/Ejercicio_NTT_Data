@@ -17,36 +17,43 @@ data "azurerm_resource_group" "main" {
   name = var.resource_group_name
 }
 
-# App Service Plan (Linux B1)
-resource "azurerm_service_plan" "main" {
-  name                = var.app_service_plan_name
-  location            = var.app_location
+resource "azurerm_container_group" "main" {
+  name                = "devops-service-aci"
+  location            = data.azurerm_resource_group.main.location
   resource_group_name = data.azurerm_resource_group.main.name
   os_type             = "Linux"
-  sku_name            = "B1"
+
+  ip_address_type     = "Public"
+  dns_name_label      = "devops-service-${random_string.suffix.result}" # subdominio público
+  restart_policy      = "Always"
+
+  container {
+    name   = "app"
+    image  = var.docker_image                       # ghcr.io/owner/repo:tag
+    cpu    = var.container_cpu
+    memory = var.container_memory
+
+    ports {
+      port     = var.container_port                 # expone tu puerto (8080 por defecto)
+      protocol = "TCP"
+    }
+
+    environment_variables = {
+      PORT = tostring(var.container_port)
+    }
+  }
+
+  # Credenciales para imagen privada en GHCR
+  image_registry_credential {
+    server   = "ghcr.io"
+    username = var.ghcr_username                    # p.ej. "cfidrobo97"
+    password = var.ghcr_token                       # PAT con read:packages
+  }
+
   tags = { environment = "production" }
 }
 
-# App Service (Linux) con imagen de GHCR
-resource "azurerm_linux_web_app" "main" {
-  name                = var.app_service_name
-  location            = var.app_location
-  resource_group_name = data.azurerm_resource_group.main.name
-  service_plan_id     = azurerm_service_plan.main.id
-
-  site_config {
-    always_on    = true
-    worker_count = 1
-  }
-
-  app_settings = {
-    "PORT"                               = "8080"
-    "DOCKER_REGISTRY_SERVER_URL"         = "https://ghcr.io"
-    "DOCKER_REGISTRY_SERVER_USERNAME"    = "cfidrobo97"
-    "DOCKER_REGISTRY_SERVER_PASSWORD"    = var.ghcr_token
-    "WEBSITES_ENABLE_APP_SERVICE_STORAGE"= "false"
-    "DOCKER_CUSTOM_IMAGE_NAME"           = var.docker_image
-  }
-
-  tags = { environment = "production" }
+output "app_url" {
+  description = "URL pública del contenedor"
+  value       = "http://${azurerm_container_group.main.fqdn}:${var.container_port}"
 }

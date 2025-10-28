@@ -160,8 +160,10 @@ jobs:
           terraform -chdir=terraform apply -auto-approve -input=false \
             -var="location=eastus" \
             -var="docker_image=${{ steps.img.outputs.ref }}" \
-            -var="ghcr_token=${{ secrets.GHCR_PAT }}"
+            -var="ghcr_username=cfidrobo97" \
+            -var="ghcr_token=${{ secrets.GHCR_PAT }}" \
+            -var="container_port=8080"
 
       - name: Show URL
-        run: terraform -chdir=terraform output app_service_url
+        run: terraform -chdir=terraform output app_url
 
