@@ -2,12 +2,7 @@ name: CI/CD Pipeline - Azure
 
 on:
   push:
-    branches:
-      - main  # Producción automática en main
-      - dev    # Desarrollo en dev
-  pull_request:
-    branches:
-      - main
+
 
 env:
   REGISTRY: ghcr.io  # Puedes cambiar a Azure Container Registry si prefieres
