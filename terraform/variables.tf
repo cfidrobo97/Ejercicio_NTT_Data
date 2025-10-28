@@ -30,3 +30,9 @@ variable "docker_image" {
   type        = string
   description = "Imagen Docker (p.ej.: ghcr.io/owner/repo:latest)"
 }
+
+variable "app_location" {
+  type        = string
+  default     = "eastus2" 
+  description = "Región para el App Service Plan/Web App"
+}
