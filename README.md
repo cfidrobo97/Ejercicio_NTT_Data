@@ -314,3 +314,11 @@ El proyecto utiliza Azure Container Instances para el hosting de la aplicación:
 - SpotBugs
 
 ---
+## Enlaces
+- Repositorio: https://github.com/cfidrobo97/Ejercicio_NTT_Data
+
+- Github Actions: https://github.com/cfidrobo97/Ejercicio_NTT_Data/actions
+
+- Dashboard Sonarcloud: https://sonarcloud.io/project/overview?id=cfidrobo97_Ejercicio_NTT_Data 
+
+---
