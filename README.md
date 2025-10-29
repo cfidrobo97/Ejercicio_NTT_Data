@@ -236,7 +236,10 @@ El pipeline consta de 5 stages que se ejecutan secuencialmente:
 | `SONAR_PROJECT_KEY`   | Clave del proyecto                               | 
 
 ---
+### Resultados del Análisis Github Actions
+![CI/CD](docs/resultados_pipeline.png)
 
+---
 ## Integración con Azure Cloud
 
 ### Arquitectura de Deployment
@@ -279,7 +282,9 @@ El proyecto utiliza Azure Container Instances para el hosting de la aplicación:
 - State locking para concurrencia
 
 ---
-
+### Pruebas con Postman
+![POSTMAN](docs/pruebas_postman.png)
+---
 
 ## Tecnologías Utilizadas
 
