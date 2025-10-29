@@ -5,6 +5,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,10 +16,21 @@ import java.util.Map;
 public class DevOpsController {
     @Autowired
     JwtUtil jwtUtil;
+    
+    @Autowired
+    JwtTrackerService jwtTrackerService;
 
     @PostMapping("/DevOps")
     public ResponseEntity<Map<String,String>> handle(
+            @RequestHeader(value = "X-JWT-KWY", required = true) String incomingJwt,
             @RequestBody Map<String,Object> body) {
+
+        // Validar que el JWT sea único (no reutilizado)
+        if (!jwtTrackerService.isJwtUnique(incomingJwt)) {
+            return ResponseEntity
+                    .status(400)
+                    .body(Map.of("error", "JWT reutilizado. Cada transacción requiere un JWT único."));
+        }
 
         String message = (String) body.get("message");
         String to      = (String) body.get("to");
@@ -28,9 +40,10 @@ public class DevOpsController {
             return ResponseEntity.badRequest().body(Map.of("error","Payload inválido"));
         }
 
-        String token = jwtUtil.generateToken(to, from);
+        // Generar un nuevo JWT para la respuesta
+        String responseToken = jwtUtil.generateToken(to, from);
         HttpHeaders headers = new HttpHeaders();
-        headers.add("X-JWT-KWY", token);
+        headers.add("X-JWT-KWY", responseToken);
         return ResponseEntity
                 .ok()
                 .headers(headers)

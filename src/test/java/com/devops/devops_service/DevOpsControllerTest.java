@@ -37,10 +37,14 @@ class DevOpsControllerTest {
     
     @MockBean
     private ApiKeyFilter apiKeyFilter;
+    
+    @MockBean
+    private JwtTrackerService jwtTrackerService;
 
     private static final String VALID_API_KEY = "2f5ae96c-b558-4c7b-a590-a501ae1c3f6c";
     private static final String INVALID_API_KEY = "invalid-key";
     private static final String MOCK_JWT = "mock-jwt-token";
+    private static final String UNIQUE_JWT = "unique-jwt-123";
 
     private Map<String, Object> validRequestBody;
 
@@ -55,10 +59,12 @@ class DevOpsControllerTest {
 
     @Test
     void testPostDevOps_WithValidApiKey_ShouldReturnSuccess() throws Exception {
+        when(jwtTrackerService.isJwtUnique(UNIQUE_JWT)).thenReturn(true);
         when(jwtUtil.generateToken(anyString(), anyString())).thenReturn(MOCK_JWT);
 
         mockMvc.perform(post("/DevOps")
                         .header("X-Parse-REST-API-Key", VALID_API_KEY)
+                        .header("X-JWT-KWY", UNIQUE_JWT)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequestBody)))
                 .andExpect(status().isOk())
@@ -68,12 +74,14 @@ class DevOpsControllerTest {
 
     @Test
     void testPostDevOps_WithMissingFields_ShouldReturnBadRequest() throws Exception {
+        when(jwtTrackerService.isJwtUnique(UNIQUE_JWT)).thenReturn(true);
         Map<String, Object> invalidBody = new HashMap<>();
         invalidBody.put("message", "This is a test");
         // Falta 'to', 'from' y 'timeToLifeSec'
 
         mockMvc.perform(post("/DevOps")
                         .header("X-Parse-REST-API-Key", VALID_API_KEY)
+                        .header("X-JWT-KWY", UNIQUE_JWT)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidBody)))
                 .andExpect(status().isBadRequest());
@@ -83,13 +91,38 @@ class DevOpsControllerTest {
     void testPostDevOps_WithInvalidApiKey_ShouldReturnUnauthorized() throws Exception {
         // Note: With @AutoConfigureMockMvc(addFilters = false), API key validation is bypassed
         // This test expects success since the ApiKeyFilter is not active
+        when(jwtTrackerService.isJwtUnique(UNIQUE_JWT)).thenReturn(true);
         when(jwtUtil.generateToken(anyString(), anyString())).thenReturn(MOCK_JWT);
         
         mockMvc.perform(post("/DevOps")
                         .header("X-Parse-REST-API-Key", INVALID_API_KEY)
+                        .header("X-JWT-KWY", UNIQUE_JWT)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequestBody)))
                 .andExpect(status().isOk());
+    }
+    
+    @Test
+    void testPostDevOps_WithReusedJWT_ShouldReturnBadRequest() throws Exception {
+        // Simular que el JWT ya fue usado
+        when(jwtTrackerService.isJwtUnique("reused-jwt")).thenReturn(false);
+        
+        mockMvc.perform(post("/DevOps")
+                        .header("X-Parse-REST-API-Key", VALID_API_KEY)
+                        .header("X-JWT-KWY", "reused-jwt")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validRequestBody)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("JWT reutilizado. Cada transacción requiere un JWT único."));
+    }
+    
+    @Test
+    void testPostDevOps_WithMissingJWT_ShouldReturnBadRequest() throws Exception {
+        mockMvc.perform(post("/DevOps")
+                        .header("X-Parse-REST-API-Key", VALID_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validRequestBody)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -126,10 +159,12 @@ class DevOpsControllerTest {
 
     @Test
     void testPostDevOps_ShouldGenerateJWT() throws Exception {
+        when(jwtTrackerService.isJwtUnique(UNIQUE_JWT)).thenReturn(true);
         when(jwtUtil.generateToken("Juan Perez", "Rita Asturia")).thenReturn(MOCK_JWT);
 
         mockMvc.perform(post("/DevOps")
                         .header("X-Parse-REST-API-Key", VALID_API_KEY)
+                        .header("X-JWT-KWY", UNIQUE_JWT)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequestBody)))
                 .andExpect(status().isOk())
